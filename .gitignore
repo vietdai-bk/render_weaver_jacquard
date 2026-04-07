@@ -13,11 +13,6 @@ venv/
 .DS_Store
 Thumbs.db
 
-# Output
-*.png
-*.jpg
-*.jpeg
-
 # JSON output
 pattern_library.json
 
