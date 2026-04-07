@@ -15,8 +15,8 @@
 1. Clone repository
 
 ```
-git clone <link-repo>
-cd <ten-folder>
+git clone https://github.com/vietdai-bk/render_weaver_jacquard
+cd render_weaver_jacquard
 ```
 2. Tạo môi trường ảo
 
@@ -30,7 +30,7 @@ Windows:
 bash
 .env\Scripts\activate
 ```
-Hoặc:
+Hoặc(nếu lệnh trên chạy không được):
 ```
 source .env/bin/activate
 ```
