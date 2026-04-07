@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environment
+.env/
+venv/
+.env.bak/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Output
+*.png
+*.jpg
+*.jpeg
+
+# JSON output
+pattern_library.json
+
+# IDE
+.vscode/
+.idea/
