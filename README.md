@@ -64,3 +64,10 @@ python convert_json.py --input hoa_van/ete.jpg --name ete
 python weaver_render.py --key ete
 ```
 Xem kết quả là ảnh ```realistic_jacquard_ten_pattern.png```.
+
+4. API
+
+Chạy API Service:
+```
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+```

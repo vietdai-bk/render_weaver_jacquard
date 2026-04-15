@@ -101,4 +101,4 @@ if __name__ == "__main__":
     if m:
         save_library(args.name, m)
         
-## python convert_json.py --input ete.jpg --name ete --size 60 --thick 1
+## python convert_json.py --input ete.jpg --name ete
