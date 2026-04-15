@@ -15,8 +15,8 @@
 1. Clone repository
 
 ```
-git clone <link-repo>
-cd <ten-folder>
+git clone https://github.com/vietdai-bk/render_weaver_jacquard
+cd render_weaver_jacquard
 ```
 2. Tạo môi trường ảo
 
@@ -30,7 +30,7 @@ Windows:
 bash
 .env\Scripts\activate
 ```
-Hoặc:
+Hoặc(nếu lệnh trên chạy không được):
 ```
 source .env/bin/activate
 ```
@@ -64,6 +64,7 @@ python convert_json.py --input hoa_van/ete.jpg --name ete
 python weaver_render.py --key ete
 ```
 Xem kết quả là ảnh ```realistic_jacquard_ten_pattern.png```.
+<<<<<<< HEAD
 
 4. API
 
@@ -71,3 +72,5 @@ Chạy API Service:
 ```
 uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
+=======
+>>>>>>> 4b0163a39057305603ebb942c87027b0101d24b9
