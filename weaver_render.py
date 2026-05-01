@@ -5,7 +5,6 @@ import argparse
 from PIL import Image, ImageFilter, ImageDraw, ImageFont
 
 def ensure_sample_library_exists(filename="pattern_library.json"):
-    """Tạo pattern mẫu nếu chưa có hoặc thiếu sample_pattern"""
     need_create = True
     
     if os.path.exists(filename):
@@ -95,7 +94,6 @@ class SmartWeaver3D:
         
         self.pattern_matrix = self._fix_diamond_colors(self.pattern_matrix)
         
-        # Đồng bộ màu: tất cả họa tiết thành màu 4
         for r in range(self.pattern_matrix.shape[0]):
             for c in range(self.pattern_matrix.shape[1]):
                 if self.pattern_matrix[r, c] != 0:
@@ -115,7 +113,6 @@ class SmartWeaver3D:
         self.default_bg_id = 0
         self.default_bg_color = self.color_map.get(self.default_bg_id, np.array([235, 220, 185]))
 
-        # Vùng trung tâm
         self.core_start_row = self.border_top + 4
         self.core_end_row = self.mat_h_cells - self.border_bottom - 4
         self.core_start_col = self.border_left + 24
@@ -127,40 +124,25 @@ class SmartWeaver3D:
         print(f"[✓] Khởi tạo thành công pattern '{pattern_key}' với kích thước {self.mat_h_cells}x{self.mat_w_cells}")
         print(f"   Border: top={self.border_top}, bottom={self.border_bottom}, left={self.border_left}, right={self.border_right}")
         print(f"   Border style: {self.border_style}")
-        print(f"   Vùng core: hàng {self.core_start_row}→{self.core_end_row-1}, cột {self.core_start_col}→{self.core_end_col-1}")
         
-        # Phát hiện và merge các vùng họa tiết
         self._detect_and_merge_regions()
-        
-        # Xây dựng cấu trúc dệt
         self._build_weave_structure()
     
-    
     def _detect_and_merge_regions(self):
-        """Phát hiện và MERGE các vùng liên tục - Xen kẽ merge theo từng hàng"""
         raw_regions = []
         
-        print("\n=== BƯỚC 1: PHÁT HIỆN VÙNG LIÊN TỤC ===")
-        print(f"   Xen kẽ merge: hàng {self.core_start_row} (merge nền) → hàng {self.core_end_row-1} (merge họa tiết)")
-        
-        # Duyệt từng hàng trong vùng core
         for r in range(self.core_start_row, self.core_end_row):
-            # Xác định hàng này merge màu gì (xen kẽ)
             if (r - self.core_start_row) % 2 == 0:
-                merge_target = 0  # merge màu NỀN
+                merge_target = 0
                 merge_name = "NỀN"
             else:
-                merge_target = -1  # merge màu HỌA TIẾT (≠ 0)
+                merge_target = -1
                 merge_name = "HỌA TIẾT"
             
-            print(f"\n   Hàng {r:3d}: MERGE {merge_name}")
-            
-            # Duyệt các cột từ expanded_start_col đến expanded_end_col
             c = self.expanded_start_col
             while c < self.expanded_end_col:
                 current_color = self.pattern_matrix[r, c]
                 
-                # QUYẾT ĐỊNH CÓ XÉT VÙNG NÀY KHÔNG
                 if merge_target == 0:
                     if current_color != 0:
                         c += 1
@@ -192,11 +174,8 @@ class SmartWeaver3D:
                         'color': current_color, 'length': run_length,
                         'merge_type': merge_name
                     })
-                    print(f"      RAW: {merge_name} (màu {current_color}) | Cột {start_col:3d}→{end_col:3d} | Dài {run_length:2d}")
                 
                 c += run_length
-        
-        print(f"\n=== BƯỚC 2: MERGE CÁC VÙNG CÙNG MÀU, GẦN NHAU (gap <= 2) ===")
         
         self.pattern_regions = []
         rows_dict = {}
@@ -215,7 +194,6 @@ class SmartWeaver3D:
                 if current['color'] == next_reg['color'] and gap <= 2:
                     current['end'] = next_reg['end']
                     current['length'] = current['end'] - current['start'] + 1
-                    print(f"   MERGE: Hàng {row} | Màu {current['color']} | {current['start']}→{current['end']} (gap={gap})")
                 else:
                     merged.append(current)
                     current = next_reg.copy()
@@ -224,26 +202,17 @@ class SmartWeaver3D:
             for reg in merged:
                 if reg['start'] < self.core_end_col and reg['end'] >= self.core_start_col:
                     self.pattern_regions.append(reg)
-                    print(f"   FINAL: Hàng {row:3d} | Màu {reg['color']} | Cột {reg['start']:3d}→{reg['end']:3d} | Dài {reg['length']:2d}")
         
-        # Đồng bộ màu
-        print(f"\n=== BƯỚC 3: ĐỒNG BỘ MÀU (GIỮ NGUYÊN MÀU CỦA VÙNG) ===")
         for region in self.pattern_regions:
             target_color = region['color']
             for c in range(region['start'], region['end'] + 1):
                 self.pattern_matrix[region['row'], c] = target_color
-            print(f"   Đồng bộ màu {target_color} cho hàng {region['row']}, cột {region['start']}-{region['end']}")
         
-        # === TẠO MARKER - CHỈNH SỬA VỊ TRÍ ===
-        print(f"\n=== BƯỚC 4: TẠO MARKER ===")
         self.marker_positions = []
-        
         for region in self.pattern_regions:
-            # Marker tại cột BẮT ĐẦU của region (trong vùng core)
             start_col = region['start']
             end_col = region['end']
             
-            # Chỉ thêm marker nếu nó nằm trong vùng core
             if start_col >= self.core_start_col and start_col < self.core_end_col:
                 self.marker_positions.append({
                     'row': region['row'], 
@@ -251,7 +220,6 @@ class SmartWeaver3D:
                     'type': 'start', 
                     'color': region['color']
                 })
-                print(f"   Marker START: Hàng {region['row']} | cột {start_col}")
             
             if end_col >= self.core_start_col and end_col < self.core_end_col:
                 self.marker_positions.append({
@@ -260,18 +228,11 @@ class SmartWeaver3D:
                     'type': 'end', 
                     'color': region['color']
                 })
-                print(f"   Marker END: Hàng {region['row']} | cột {end_col}")
         
         self.marker_set = set()
         for m in self.marker_positions:
             self.marker_set.add((m['row'], m['col']))
         
-        # DEBUG: In danh sách marker
-        print(f"\n=== DANH SÁCH MARKER ===")
-        for m in sorted(self.marker_positions, key=lambda x: (x['row'], x['col'])):
-            print(f"   Hàng {m['row']:3d} | Cột {m['col']:3d} | {m['type']}")
-        
-        # Tạo ma trận đánh dấu hình chữ nhật (chỉ cho vùng có độ dài > 12)
         self.force_rectangular = np.zeros_like(self.pattern_matrix, dtype=bool)
         for region in self.pattern_regions:
             region_length = region['end'] - region['start'] + 1
@@ -279,17 +240,6 @@ class SmartWeaver3D:
                 for c in range(region['start'], region['end'] + 1):
                     if (region['row'], c) not in self.marker_set:
                         self.force_rectangular[region['row'], c] = True
-                print(f"   ✓ HÌNH CHỮ NHẬT: hàng {region['row']}, cột {region['start']}-{region['end']} (dài {region_length} > 12)")
-            else:
-                print(f"   ✗ BỎ QUA (hình thoi): hàng {region['row']}, cột {region['start']}-{region['end']} (dài {region_length} <= 12)")
-        
-        print(f"\n=== THỐNG KÊ ===")
-        print(f"   Số vùng RAW: {len(raw_regions)}")
-        print(f"   Số vùng sau MERGE: {len(self.pattern_regions)}")
-        print(f"   Số marker: {len(self.marker_positions)}")
-        print(f"   Số ô hình chữ nhật: {np.sum(self.force_rectangular)}")
-        print("=====================================\n")    
-
 
     def _draw_markers(self, img):
         if not self.show_markers:
@@ -393,53 +343,147 @@ class SmartWeaver3D:
             weft_B_id = 4
             
         return weft_A_id, weft_B_id
-
-    def _get_accent_color_for_border(self):
-        return 4
+    
     
     def get_woven_state(self, r, c):
         weft_A_id, weft_B_id = self.get_weft_threads_for_row(r)
         is_warp_on_top = self.weave_mask[r, c]
-
         if r >= self.border_top and r < self.border_top + 4:
             return 4, is_warp_on_top
         
         if r >= (self.mat_h_cells - self.border_bottom - 4) and r < (self.mat_h_cells - self.border_bottom):
             return 4, is_warp_on_top
-
         if r < self.border_top:
-            if self.border_style == "background":
-                return self.default_bg_id, is_warp_on_top
-            elif self.border_style == "alternating":
-                return (weft_B_id if (c // self.warp_spacing) % 2 == 0 else weft_A_id), is_warp_on_top
+            block_index = c // self.warp_spacing
+            
+            if r in [16, 18, 20, 30, 32, 34]:
+                if block_index in [9, 10]:
+                    return 4, is_warp_on_top
+            
+            if r in [17, 19, 21, 29, 31, 33]:
+                if block_index in [8, 9, 10, 11]:
+                    return 4, is_warp_on_top
+            
+            if r in [22, 24, 26, 28]:
+                if block_index in [7, 8, 9, 10, 11, 12]:
+                    return 4, is_warp_on_top
+            
+            if r in [23, 25, 27]:
+                if block_index in [6, 7, 8, 9, 10, 11, 12, 13]:
+                    return 4, is_warp_on_top
+            
+            if r in [17, 19, 21, 29, 31, 33]:
+                if block_index in [22, 23, 24, 25]:
+                    return 4, is_warp_on_top
+            
+            if r in [16, 18, 20, 30, 32, 34]:
+                if block_index in [23, 24]:
+                    return 4, is_warp_on_top
+            
+            if r in [22, 24, 26, 28]:
+                if block_index in [21, 22, 23, 24, 25, 26]:
+                    return 4, is_warp_on_top
+            
+            if r in [23, 25, 27]:
+                if block_index in [20, 21, 22, 23, 24, 25, 26, 27]:
+                    return 4, is_warp_on_top
+            
+            if r in [17, 19, 21, 29, 31, 33]:
+                if block_index in [36, 37, 38, 39]:
+                    return 4, is_warp_on_top
+            
+            if r in [16, 18, 20, 30, 32, 34]:
+                if block_index in [37, 38]:
+                    return 4, is_warp_on_top
+            
+            if r in [22, 24, 26, 28]:
+                if block_index in [35, 36, 37, 38, 39, 40]:
+                    return 4, is_warp_on_top
+            
+            if r in [23, 25, 27]:
+                if block_index in [34, 35, 36, 37, 38, 39, 40, 41]:
+                    return 4, is_warp_on_top
+            
+            block_position = (r % 4)
+            if block_position < 2:
+                return weft_B_id, is_warp_on_top
             else:
-                return 4, is_warp_on_top
-        
+                return self.default_bg_id, is_warp_on_top
+            
         if r >= (self.mat_h_cells - self.border_bottom):
-            if self.border_style == "background":
-                return self.default_bg_id, is_warp_on_top
-            elif self.border_style == "alternating":
-                return (weft_B_id if (c // self.warp_spacing) % 2 == 0 else weft_A_id), is_warp_on_top
-            else:
-                return 4, is_warp_on_top
+            block_index = c // self.warp_spacing
+            
+            if r in [306, 308, 310, 320, 322, 324]:
+                if block_index in [9, 10]:
+                    return 4, is_warp_on_top
+            
+            if r in [307, 309, 311, 319, 321, 323]:
+                if block_index in [8, 9, 10, 11]:
+                    return 4, is_warp_on_top
+            
+            if r in [312, 314, 316, 318]:
+                if block_index in [7, 8, 9, 10, 11, 12]:
+                    return 4, is_warp_on_top
+            
+            if r in [313, 315, 317]:
+                if block_index in [6, 7, 8, 9, 10, 11, 12, 13]:
+                    return 4, is_warp_on_top
+            
+            if r in [307, 309, 311, 319, 321, 323]:
+                if block_index in [22, 23, 24, 25]:
+                    return 4, is_warp_on_top
+            
+            if r in [306, 308, 310, 320, 322, 324]:
+                if block_index in [23, 24]:
+                    return 4, is_warp_on_top
+            
+            if r in [312, 314, 316, 318]:
+                if block_index in [21, 22, 23, 24, 25, 26]:
+                    return 4, is_warp_on_top
+            
+            if r in [313, 315, 317]:
+                if block_index in [20, 21, 22, 23, 24, 25, 26, 27]:
+                    return 4, is_warp_on_top
+            
+            if r in [307, 309, 311, 319, 321, 323]:
+                if block_index in [36, 37, 38, 39]:
+                    return 4, is_warp_on_top
+            
+            if r in [306, 308, 310, 320, 322, 324]:
+                if block_index in [37, 38]:
+                    return 4, is_warp_on_top
+            
+            if r in [312, 314, 316, 318]:
+                if block_index in [35, 36, 37, 38, 39, 40]:
+                    return 4, is_warp_on_top
+            
+            if r in [313, 315, 317]:
+                if block_index in [34, 35, 36, 37, 38, 39, 40, 41]:
+                    return 4, is_warp_on_top
 
-        # LEFT BORDER (xen kẽ màu)
+            block_position = (r % 4)
+            if block_position < 2:
+                return weft_B_id, is_warp_on_top
+            else:
+                return self.default_bg_id, is_warp_on_top
+
+        # Left border
         if c < self.border_left:
             return (weft_B_id if r % 2 == 0 else weft_A_id), is_warp_on_top
         
-        # RIGHT BORDER (xen kẽ màu)
+        # Right border
         if c >= (self.mat_w_cells - self.border_right):
             return (weft_B_id if r % 2 == 0 else weft_A_id), is_warp_on_top
 
-        # MAIN PATTERN AREA
+        # Vùng trung tâm
         target_color_id = self.pattern_matrix[r, c]
-        if target_color_id == weft_B_id and weft_B_id != self.default_bg_id:
-            return weft_B_id, is_warp_on_top
+        if target_color_id != 0:
+            return 4, is_warp_on_top
         return weft_A_id, is_warp_on_top
-    
-    
+        
+
+
     def render(self):
-        """Render ảnh 3D - Đồng nhất hiệu ứng đổ bóng sợi dọc"""
         h_px = self.mat_h_cells * self.cell_size
         w_px = self.mat_w_cells * self.cell_size
         out = np.zeros((h_px, w_px, 3), dtype=np.float32)
@@ -447,7 +491,6 @@ class SmartWeaver3D:
         yy, xx = np.mgrid[0:self.cell_size, 0:self.cell_size]
         center = (self.cell_size - 1) / 2.0
         
-        # === HIỆU ỨNG BO TRÒN CHO HÌNH CHỮ NHẬT ===
         dist_from_center_y = np.abs(yy - center) / center
         vertical_curve = np.cos(dist_from_center_y * np.pi / 2.0)
         vertical_curve = np.clip(vertical_curve, 0.75, 1.0)
@@ -491,7 +534,6 @@ class SmartWeaver3D:
                 dist_from_warp = np.abs(x_global - x_nearest_warp_center) / half_block_px
                 dist_from_warp = np.clip(dist_from_warp, 0.0, 1.0)
 
-                # === LOGIC QUYẾT ĐỊNH HÌNH DẠNG ===
                 use_rectangular = False
                 is_marker = (i, j) in self.marker_set
                 
@@ -506,16 +548,13 @@ class SmartWeaver3D:
                 if not is_marker:
                     warp_on_top_scalar = warp_on_top_array[self.cell_size//2, self.cell_size//2]
                 
-                # === XÁC ĐỊNH SỢI DỌC THỨ 8 ===
                 is_warp_at_8th = False
                 if (j % self.warp_spacing == 0):
                     warp_index = j // self.warp_spacing + 1
                     if warp_index == 8:
                         is_warp_at_8th = True
                 
-                # === TÍNH TOÁN diamond_width, height_x, under_warp_shadow ===
                 if use_rectangular:
-                    # HÌNH CHỮ NHẬT: bo tròn
                     diamond_width = rounded_mask
                     warp_for_shadow = np.zeros_like(dist_from_warp, dtype=bool)
                     height_x = 0.85 * diamond_width
@@ -523,7 +562,6 @@ class SmartWeaver3D:
                     under_warp_shadow = np.where(warp_for_shadow, deep_shadow, 1.0)
                     
                 elif is_marker:
-                    # MARKER: VUỐT NHỌN
                     taper_factor = 0.28
                     diamond_width = np.where(
                         warp_on_top_array,
@@ -543,7 +581,6 @@ class SmartWeaver3D:
                     warp_for_shadow = warp_on_top_array
                     
                 else:
-                    # PADDING - HÌNH THOI BÌNH THƯỜNG
                     taper_factor = 0.35
                     diamond_width = np.where(
                         warp_on_top_array,
@@ -562,7 +599,6 @@ class SmartWeaver3D:
                     under_warp_shadow = np.where(warp_on_top_array, deep_shadow, 1.0)
                     warp_for_shadow = warp_on_top_array
                 
-                # === TÍNH TOÁN HIỆU ỨNG ÁNH SÁNG ===
                 norm_dist_y = np.abs(yy - center) / (self.cell_size / 1.6)
                 effective_dist_y = norm_dist_y / np.maximum(diamond_width, 0.15) * 0.9
                 wave_offset = np.sin(i * 0.13) * 0.04
@@ -580,30 +616,26 @@ class SmartWeaver3D:
                 
                 base_tile = (color * shade[:,:,None] * striation[:,:,None] * roughness_noise) + spec[:,:,None]
                 
-                # === VẼ SỢI DỌC ===
                 if (j % self.warp_spacing == 0):
-                    # Xác định có cần vẽ sợi dọc nổi không
                     should_draw_warp = False
                     warp_alpha_mult = 0.7
                     
                     if is_marker:
                         should_draw_warp = True
-                        warp_alpha_mult = 0.85  # Marker nổi rõ hơn
+                        warp_alpha_mult = 0.85
                     elif not use_rectangular:
                         should_draw_warp = True
-                        warp_alpha_mult = 0.7   # Padding bình thường
+                        warp_alpha_mult = 0.7
                     elif use_rectangular and is_warp_at_8th:
                         should_draw_warp = True
-                        warp_alpha_mult = 0.7   # Sợi dọc thứ 8 giống padding
+                        warp_alpha_mult = 0.7
                     
                     if should_draw_warp and warp_on_top_scalar:
-                        # Công thức chung cho tất cả sợi dọc nổi (đồng nhất hiệu ứng)
                         shadowed_base = base_tile * shadow_profile[:,:,None]
                         warp_layer = warp_color_base * roughness_noise
                         warp_alpha = (warp_profile * warp_alpha_mult)[:,:,None]
                         tile = warp_layer * warp_alpha + shadowed_base * (1.0 - warp_alpha)
                     elif not use_rectangular and not warp_on_top_scalar:
-                        # Sợi dọc nằm dưới (bình thường)
                         tile = base_tile * indent_profile[:,:,None]
                     else:
                         tile = base_tile
@@ -612,7 +644,6 @@ class SmartWeaver3D:
 
                 out[y0:y0+self.cell_size, x0:x0+self.cell_size] = np.clip(tile, 0, 255)
 
-        # Làm mượt nhẹ
         img = Image.fromarray(np.clip(out, 0, 255).astype(np.uint8))
         img = img.filter(ImageFilter.GaussianBlur(radius=0.25)) 
         img = img.filter(ImageFilter.UnsharpMask(radius=1.0, percent=100, threshold=2))
@@ -621,8 +652,6 @@ class SmartWeaver3D:
             img = self._draw_markers(img)
         
         return img
-        
-
 
 if __name__ == "__main__":
     ensure_sample_library_exists()
